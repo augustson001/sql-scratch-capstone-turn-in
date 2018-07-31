@@ -1,0 +1,70 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf470
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 with months as\
+(\
+ select '2017-01-01' as firstday,\
+				'2017-01-31' as lastday\
+ UNION\
+ select '2017-02-01' as firstday,\
+				'2017-02-28' as lastday\
+ UNION\
+ select '2017-03-01' as firstday,\
+				'2017-03-31' as lastday\
+),\
+cross_join as\
+(\
+ select * from subscriptions \
+  cross join months\
+),\
+status as \
+(\
+ select cross_join.id, firstday as 'month',\
+  subscription_start, subscription_end, segment,\
+ case when (segment = 87) \
+  and (subscription_start < firstday \
+       and (subscription_end > firstday or \
+           subscription_end is null))\
+  then 1\
+  else 0\
+ end as 'is_active_87',\
+   case when (segment = 30) \
+  and (subscription_start < firstday \
+       and (subscription_end > firstday or \
+           subscription_end is null))\
+  then 1\
+  else 0\
+ end as 'is_active_30',\
+  case when (segment = 87) \
+  and (subscription_start < firstday \
+       and (subscription_end >= firstday and \
+           subscription_end <= lastday))\
+  then 1\
+  else 0\
+ end as 'is_canceled_87',\
+  case when (segment = 30) \
+  and (subscription_start < firstday \
+       and (subscription_end >= firstday and \
+           subscription_end <= lastday))\
+  then 1\
+  else 0\
+ end as 'is_canceled_30'\
+ from cross_join\
+),\
+status_aggregate as\
+(\
+ select month, sum(is_active_87) as 'sum_active_87',\
+  sum(is_active_30) as 'sum_active_30',\
+  sum(is_canceled_87) as 'sum_canceled_87',\
+  sum(is_canceled_30) as 'sum_canceled_30'\
+ from status\
+ group by month\
+)\
+\
+select month, 1.0*sum_canceled_87/sum_active_87 as 'churn_rates_87', 1.0*sum_canceled_30/sum_active_30 as 'churn_rates_30' \
+from status_aggregate\
+group by month;\
+      }
